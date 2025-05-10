@@ -29,6 +29,10 @@ public class Product {
     private String currency;
 
 
+    private String source;
+
+
+
     public String getProductId() { return productId; }
     public void setProductId(String productId) { this.productId = productId; }
 
@@ -52,4 +56,7 @@ public class Product {
 
     public String getCurrency() { return currency; }
     public void setCurrency(String currency) { this.currency = currency; }
+
+    public String getSource() { return source; }
+    public void setSource(String source) { this.source = source; }
 }

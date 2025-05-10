@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -33,9 +34,26 @@ public class CSVLoaderService {
                     .withIgnoreLeadingWhiteSpace(true)
                     .build();
 
-            return csvToBean.parse();
+            List<Product> products = csvToBean.parse();
+
+
+            String source = fileName.split("_")[0].toLowerCase();
+
+            for (Product product : products) {
+                product.setSource(source);
+            }
+
+            return products;
         } catch (Exception e) {
             throw new RuntimeException("Failed to load CSV file: " + e.getMessage(), e);
         }
+    }
+
+    public List<Product> loadAllCSVs(List<String> fileNames) {
+        List<Product> allProducts = new ArrayList<>();
+        for (String fileName : fileNames) {
+            allProducts.addAll(loadProductsFromCSV(fileName));
+        }
+        return allProducts;
     }
 }
