@@ -1,67 +1,69 @@
 package com.example.price_comaprator_backend;
 
 import com.opencsv.bean.CsvToBeanBuilder;
-import com.opencsv.bean.HeaderColumnNameMappingStrategy;
-import org.springframework.stereotype.Service;
 
-import java.io.File;
-import java.io.FileReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.time.LocalDate;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.List;
 
-@Service
 public class DiscountService {
 
-    private final String discountsDirectory = "src/main/resources/discounts";
-
-    public List<Discount> getActiveDiscountsForBasket(ShoppingBasket basket) {
-        List<Discount> allDiscounts = loadAllDiscounts();
-        LocalDate today = LocalDate.now();
-
-        Set<String> basketProductNames = basket.getItems().stream()
-                .map(BasketItem::getProductName)
-                .map(String::toLowerCase)
-                .collect(Collectors.toSet());
-
-        return allDiscounts.stream()
-                .filter(discount -> basketProductNames.contains(discount.getProductName().toLowerCase()))
-                .filter(discount -> !today.isBefore(discount.getFromDate()) && !today.isAfter(discount.getToDate()))
-                .collect(Collectors.toList());
-    }
-
-    private List<Discount> loadAllDiscounts() {
+    public List<Discount> loadDiscounts(List<String> fileNames) {
         List<Discount> discounts = new ArrayList<>();
-        File folder = new File(discountsDirectory);
 
-        File[] files = folder.listFiles((dir, name) -> name.endsWith(".csv"));
-        if (files == null) return discounts;
+        for (String fileName : fileNames) {
+            try {
+                InputStream inputStream = getClass().getClassLoader().getResourceAsStream("discounts/" + fileName);
+                if (inputStream == null) {
+                    System.err.println("❌ Could not load " + fileName);
+                    continue;
+                }
 
-        for (File file : files) {
-            try (FileReader reader = new FileReader(file)) {
-                HeaderColumnNameMappingStrategy<Discount> strategy = new HeaderColumnNameMappingStrategy<>();
-                strategy.setType(Discount.class);
-
+                Reader reader = new InputStreamReader(inputStream);
                 List<Discount> fileDiscounts = new CsvToBeanBuilder<Discount>(reader)
                         .withType(Discount.class)
-                        .withSeparator(';')
-                        .withMappingStrategy(strategy)
+                        .withIgnoreLeadingWhiteSpace(true)
+                        .withSeparator(';')  // ✅ Tell OpenCSV to use semicolon
                         .build()
                         .parse();
 
-                String source = file.getName().toLowerCase().contains("kaufland") ? "kaufland"
-                        : file.getName().toLowerCase().contains("lidl") ? "lidl"
-                        : "profi";
+               // System.out.println("✅ Loaded " + fileDiscounts.size() + " discounts from " + fileName);
+               // fileDiscounts.forEach(d -> System.out.println("   - " + d));   debug each line
 
-                fileDiscounts.forEach(d -> d.setSource(source));
                 discounts.addAll(fileDiscounts);
-
             } catch (Exception e) {
-                System.err.println("Error reading file: " + file.getName());
-                e.printStackTrace();
+                System.err.println("❌ Failed to load " + fileName + ": " + e.getMessage());
             }
         }
 
         return discounts;
+    }
+
+
+    public List<Discount> findDiscountsForBasket(List<BasketItem> basket, List<Discount> allDiscounts) {
+        LocalDate today = LocalDate.now();
+        List<Discount> matched = new ArrayList<>();
+
+        for (BasketItem item : basket) {
+            String basketProductName = item.getProductName().trim().toLowerCase();
+
+            for (Discount discount : allDiscounts) {
+                if (discount.getProductName() != null) {
+                    String discountProductName = discount.getProductName().trim().toLowerCase();
+
+                    if (basketProductName.equals(discountProductName) &&
+                            (discount.getFromDate() == null || !today.isBefore(discount.getFromDate())) &&
+                            (discount.getToDate() == null || !today.isAfter(discount.getToDate()))) {
+
+                        matched.add(discount);
+                    }
+                }
+            }
+        }
+
+        return matched;
     }
 }

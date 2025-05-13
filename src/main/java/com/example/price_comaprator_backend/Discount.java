@@ -1,18 +1,42 @@
 package com.example.price_comaprator_backend;
 
+import com.opencsv.bean.CsvBindByName;
+import com.opencsv.bean.CsvDate;
+
 import java.time.LocalDate;
 
 public class Discount {
+    @CsvBindByName(column = "product_id")
     private String productId;
+
+    @CsvBindByName(column = "product_name")
     private String productName;
+
+    @CsvBindByName(column = "brand")
     private String brand;
+
+    @CsvBindByName(column = "package_quantity")
     private double packageQuantity;
+
+    @CsvBindByName(column = "package_unit")
     private String packageUnit;
+
+    @CsvBindByName(column = "product_category")
     private String productCategory;
+
+    @CsvBindByName(column = "from_date")
+    @CsvDate("yyyy-MM-dd")
     private LocalDate fromDate;
+
+    @CsvBindByName(column = "to_date")
+    @CsvDate("yyyy-MM-dd")
     private LocalDate toDate;
+
+    @CsvBindByName(column = "percentage_of_discount")
     private int percentageOfDiscount;
-    private String source; // e.g., "kaufland", "lidl", "profi"
+
+    @CsvBindByName(column = "source")
+    private String source;
 
     public Discount() {}
 

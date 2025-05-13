@@ -7,6 +7,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class BasketClient {
 
@@ -15,8 +16,9 @@ public class BasketClient {
     public static void main(String[] args) throws Exception {
         Scanner scanner = new Scanner(System.in);
         ShoppingBasket basket = new ShoppingBasket();
-
+        DiscountService discountService = new DiscountService();
         CSVLoaderService loader = new CSVLoaderService();
+
         List<String> csvFileNames = List.of(
                 "kaufland_2025-05-01.csv", "kaufland_2025-05-08.csv",
                 "lidl_2025-05-01.csv", "lidl_2025-05-08.csv",
@@ -47,6 +49,7 @@ public class BasketClient {
                                     p.getProductName(), p.getBrand(), p.getPrice(),
                                     p.getCurrency(), p.getSource()));
                 }
+
                 case "2" -> {
                     System.out.print("Enter product name: ");
                     String name = scanner.nextLine().trim();
@@ -60,19 +63,35 @@ public class BasketClient {
                     if (matches.isEmpty()) {
                         System.out.println("❌ Product not found.");
                     } else {
-                        System.out.print("Enter quantity: ");
+                        System.out.println("Available options:");
+                        for (int i = 0; i < matches.size(); i++) {
+                            Product p = matches.get(i);
+                            System.out.printf("%d. %s (%s) - %.2f %s at %s%n",
+                                    i + 1, p.getProductName(), p.getBrand(), p.getPrice(),
+                                    p.getCurrency(), p.getSource());
+                        }
+
+                        System.out.print("Select option by number: ");
                         try {
+                            int option = Integer.parseInt(scanner.nextLine().trim());
+                            if (option < 1 || option > matches.size()) {
+                                System.out.println("❌ Invalid selection.");
+                                break;
+                            }
+                            Product selected = matches.get(option - 1);
+
+                            System.out.print("Enter quantity: ");
                             int qty = Integer.parseInt(scanner.nextLine().trim());
-                            basket.getItems().add(new BasketItem(name, qty));
+
+                            basket.getItems().add(new BasketItem(selected.getProductName(), selected.getBrand(), qty));
                             System.out.println("✅ Added to basket.");
-                            System.out.println("Best options:");
-                            matches.forEach(p -> System.out.printf("- %.2f %s at %s%n",
-                                    p.getPrice(), p.getCurrency(), p.getSource()));
                         } catch (NumberFormatException e) {
-                            System.out.println("❌ Invalid quantity.");
+                            System.out.println("❌ Invalid input.");
                         }
                     }
                 }
+
+
                 case "3" -> {
                     if (basket.getItems().isEmpty()) {
                         System.out.println("🛒 Basket is empty.");
@@ -82,26 +101,37 @@ public class BasketClient {
                                 System.out.printf("- %s x%d%n", i.getProductName(), i.getQuantity()));
                     }
                 }
+
                 case "4" -> {
-                    ObjectMapper mapper = new ObjectMapper();
-                    String json = mapper.writeValueAsString(basket);
+                    List<String> discountFileNames = List.of(
+                            "kaufland_discounts_2025-05-01.csv",
+                            "kaufland_discounts_2025-05-08.csv",
+                            "lidl_discounts_2025-05-01.csv",
+                            "lidl_discounts_2025-05-08.csv",
+                            "profi_discounts_2025-05-01.csv",
+                            "profi_discounts_2025-05-08.csv"
+                    );
 
-                    HttpRequest request = HttpRequest.newBuilder()
-                            .uri(new URI(OPTIMIZE_ENDPOINT))
-                            .header("Content-Type", "application/json")
-                            .POST(HttpRequest.BodyPublishers.ofString(json))
-                            .build();
+                    List<Discount> allDiscounts = discountService.loadDiscounts(discountFileNames);
+                    List<Discount> relevantDiscounts = discountService.findDiscountsForBasket(basket.getItems(), allDiscounts);
 
-                    HttpResponse<String> response = HttpClient.newHttpClient()
-                            .send(request, HttpResponse.BodyHandlers.ofString());
-
-                    System.out.println("\n=== Optimized Basket ===");
-                    System.out.println(response.body());
+                    if (relevantDiscounts.isEmpty()) {
+                        System.out.println("ℹ️ No discounts available for these products.");
+                    } else {
+                        System.out.println("\n=== Discounts for Your Basket ===");
+                        relevantDiscounts.forEach(d -> System.out.printf(
+                                "- %s (%s): %d%% off from %s to %s%n",
+                                d.getProductName(), d.getBrand(), d.getPercentageOfDiscount(),
+                                 d.getFromDate(), d.getToDate()
+                        ));
+                    }
                 }
+
                 case "5" -> {
                     System.out.println("👋 Exiting. Goodbye!");
                     return;
                 }
+
                 default -> System.out.println("⚠️ Invalid option.");
             }
         }

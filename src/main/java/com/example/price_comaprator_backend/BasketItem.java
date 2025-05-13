@@ -2,12 +2,14 @@ package com.example.price_comaprator_backend;
 
 public class BasketItem {
     private String productName;
+    private String brand;
     private int quantity;
 
 
     public BasketItem() {}
-    public BasketItem(String productName, int quantity) {
+    public BasketItem(String productName,String brand, int quantity) {
         this.productName = productName;
+        this.brand = brand;
         this.quantity = quantity;
     }
 
@@ -24,5 +26,8 @@ public class BasketItem {
     public void setQuantity(int quantity) {
         this.quantity = quantity;
     }
+
+    public String getBrand() { return brand; }
+    public void setBrand(String brand) { this.brand = brand; }
 }
 
