@@ -10,7 +10,7 @@ import java.util.*;
 @Service
 public class BasketOptimizationService {
 
-    private final String dataDirectory = "src/main/resources/products";
+    private final String dataDirectory = "src/main/resources";
 
     public List<OptimizedBasketItem> optimizeBasket(ShoppingBasket basket) {
         List<Product> allProducts = loadAllProducts();
@@ -18,22 +18,20 @@ public class BasketOptimizationService {
 
         for (BasketItem item : basket.getItems()) {
             Optional<Product> cheapestMatch = allProducts.stream()
-                    .filter(p -> p.getProductName().equalsIgnoreCase(item.getProductName()))
+                    .filter(p -> p.getProductName().toLowerCase().contains(item.getProductName().toLowerCase()))
                     .min(Comparator.comparing(Product::getPrice));
 
-            if (cheapestMatch.isPresent()) {
-                Product product = cheapestMatch.get();
-                optimizedList.add(new OptimizedBasketItem(
-                        product.getProductName(),
-                        item.getQuantity(),
-                        product.getSource(),
-                        product.getPrice()
-                ));
-            }
+            cheapestMatch.ifPresent(product -> optimizedList.add(new OptimizedBasketItem(
+                    product.getProductName(),
+                    item.getQuantity(),
+                    product.getSource(),
+                    product.getPrice()
+            )));
         }
 
         return optimizedList;
     }
+
 
     private List<Product> loadAllProducts() {
         List<Product> products = new ArrayList<>();

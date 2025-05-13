@@ -1,5 +1,4 @@
-product_id;product_name;brand;package_quantity;package_unit;product_category;from
-_date;to_date;percentage_of_discount
+product_id;product_name;brand;package_quantity;package_unit;product_category;from_date;to_date;percentage_of_discount
 P001;lapte zuzu;Zuzu;1;l;lactate;2025-05-08;2025-05-14;9
 P006;ouă mărimea M;Ferma Veche;10;buc;ouă;2025-05-08;2025-05-14;11
 P012;pâine albă;K-Classic;500;g;panificație;2025-05-09;2025-05-15;7

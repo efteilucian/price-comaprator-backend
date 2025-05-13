@@ -1,5 +1,4 @@
-product_id;product_name;brand;package_quantity;package_unit;product_category;from
-_date;to_date;percentage_of_discount
+product_id;product_name;brand;package_quantity;package_unit;product_category;from_date;to_date;percentage_of_discount
 P001;lapte zuzu;Zuzu;1;l;lactate;2025-05-08;2025-05-14;12
 P008;brânză telemea;Pilos;0.3;kg;lactate;2025-05-08;2025-05-14;10
 P017;piept pui;Lidl;1;kg;carne;2025-05-09;2025-05-15;8

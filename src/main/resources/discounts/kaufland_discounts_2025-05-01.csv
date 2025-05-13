@@ -1,5 +1,4 @@
-product_id;product_name;brand;package_quantity;package_unit;product_category;from
-_date;to_date;percentage_of_discount
+product_id;product_name;brand;package_quantity;package_unit;product_category;from_date;to_date;percentage_of_discount
 P003;iaurt grecesc;Olympus;0.4;kg;lactate;2025-05-01;2025-05-07;10
 P009;brânză telemea;Hochland;0.3;kg;lactate;2025-05-01;2025-05-07;10
 P018;piept pui;Agricola;1;kg;carne;2025-05-02;2025-05-08;12
