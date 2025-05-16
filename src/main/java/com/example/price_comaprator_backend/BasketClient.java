@@ -120,8 +120,8 @@ public class BasketClient {
                     } else {
                         System.out.println("\n=== Discounts for Your Basket ===");
                         relevantDiscounts.forEach(d -> System.out.printf(
-                                "- %s (%s): %d%% off from %s to %s%n",
-                                d.getProductName(), d.getBrand(), d.getPercentageOfDiscount(),
+                                "- %s (%s): %d%% off at %s from %s to %s%n",
+                                d.getProductName(), d.getBrand(), d.getPercentageOfDiscount(),d.getSource(),
                                  d.getFromDate(), d.getToDate()
                         ));
                     }

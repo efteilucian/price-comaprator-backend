@@ -5,7 +5,6 @@ import com.opencsv.bean.CsvToBeanBuilder;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,12 +25,15 @@ public class DiscountService {
                 List<Discount> fileDiscounts = new CsvToBeanBuilder<Discount>(reader)
                         .withType(Discount.class)
                         .withIgnoreLeadingWhiteSpace(true)
-                        .withSeparator(';')  // ✅ Tell OpenCSV to use semicolon
+                        .withSeparator(';')
                         .build()
                         .parse();
 
-               // System.out.println("✅ Loaded " + fileDiscounts.size() + " discounts from " + fileName);
-               // fileDiscounts.forEach(d -> System.out.println("   - " + d));   debug each line
+                // 🏷️ Extract store name (e.g., "kaufland" from "kaufland_discounts_2025-05-08.csv")
+                String store = fileName.split("_")[0];
+                for (Discount discount : fileDiscounts) {
+                    discount.setSource(store);
+                }
 
                 discounts.addAll(fileDiscounts);
             } catch (Exception e) {
@@ -44,20 +46,18 @@ public class DiscountService {
 
 
     public List<Discount> findDiscountsForBasket(List<BasketItem> basket, List<Discount> allDiscounts) {
-        LocalDate today = LocalDate.now();
         List<Discount> matched = new ArrayList<>();
 
         for (BasketItem item : basket) {
             String basketProductName = item.getProductName().trim().toLowerCase();
+            String basketBrand = item.getBrand().trim().toLowerCase();
 
             for (Discount discount : allDiscounts) {
-                if (discount.getProductName() != null) {
+                if (discount.getProductName() != null && discount.getBrand() != null) {
                     String discountProductName = discount.getProductName().trim().toLowerCase();
+                    String discountBrand = discount.getBrand().trim().toLowerCase();
 
-                    if (basketProductName.equals(discountProductName) &&
-                            (discount.getFromDate() == null || !today.isBefore(discount.getFromDate())) &&
-                            (discount.getToDate() == null || !today.isAfter(discount.getToDate()))) {
-
+                    if (basketProductName.equals(discountProductName) && basketBrand.equals(discountBrand)) {
                         matched.add(discount);
                     }
                 }
