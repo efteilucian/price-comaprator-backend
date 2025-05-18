@@ -1,13 +1,16 @@
 package com.example.price_comaprator_backend;
 
 import com.opencsv.bean.CsvToBeanBuilder;
+import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.util.ArrayList;
-import java.util.List;
+import java.time.LocalDate;
+import java.util.*;
+import java.util.stream.Collectors;
 
+@Service
 public class DiscountService {
 
     public List<Discount> loadDiscounts(List<String> fileNames) {
@@ -51,13 +54,17 @@ public class DiscountService {
         for (BasketItem item : basket) {
             String basketProductName = item.getProductName().trim().toLowerCase();
             String basketBrand = item.getBrand().trim().toLowerCase();
+            String basketSource = item.getSource().trim().toLowerCase();  // Normalize here
 
             for (Discount discount : allDiscounts) {
-                if (discount.getProductName() != null && discount.getBrand() != null) {
+                if (discount.getProductName() != null && discount.getBrand() != null && discount.getSource() != null) {
                     String discountProductName = discount.getProductName().trim().toLowerCase();
                     String discountBrand = discount.getBrand().trim().toLowerCase();
+                    String discountSource = discount.getSource().trim().toLowerCase();
 
-                    if (basketProductName.equals(discountProductName) && basketBrand.equals(discountBrand)) {
+                    if (basketProductName.equals(discountProductName)
+                            && basketBrand.equals(discountBrand)
+                            && basketSource.equals(discountSource)) {
                         matched.add(discount);
                     }
                 }
@@ -66,4 +73,34 @@ public class DiscountService {
 
         return matched;
     }
+
+    //shows only best 10 discouns
+    public List<Discount> getBestDiscounts(List<Discount> allDiscounts, int limit) {
+        Map<String, Discount> bestPerProduct = new HashMap<>();
+
+        for (Discount d : allDiscounts) {
+            String key = (d.getProductName() + "_" + d.getBrand()).toLowerCase().trim();
+
+            // Only keep if it's the best discount so far for this product
+            if (!bestPerProduct.containsKey(key) || d.getPercentageOfDiscount() > bestPerProduct.get(key).getPercentageOfDiscount()) {
+                bestPerProduct.put(key, d);
+            }
+        }
+
+        return bestPerProduct.values().stream()
+                .sorted(Comparator.comparing(Discount::getPercentageOfDiscount).reversed())
+                .limit(limit)
+                .toList();
+    }
+
+    public List<Discount> findNewDiscounts(List<Discount> allDiscounts, int days) {
+        LocalDate cutoffDate = LocalDate.now().minusDays(days);
+
+        return allDiscounts.stream()
+                .filter(d -> d.getFromDate() != null && !d.getFromDate().isBefore(cutoffDate))
+                .collect(Collectors.toList());
+    }
+
+
+
 }

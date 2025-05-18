@@ -1,13 +1,8 @@
 package com.example.price_comaprator_backend;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.util.*;
-import java.util.stream.Collectors;
+
 
 public class BasketClient {
 
@@ -16,13 +11,15 @@ public class BasketClient {
     public static void main(String[] args) throws Exception {
         Scanner scanner = new Scanner(System.in);
         ShoppingBasket basket = new ShoppingBasket();
+
         DiscountService discountService = new DiscountService();
         CSVLoaderService loader = new CSVLoaderService();
 
         List<String> csvFileNames = List.of(
                 "kaufland_2025-05-01.csv", "kaufland_2025-05-08.csv",
                 "lidl_2025-05-01.csv", "lidl_2025-05-08.csv",
-                "profi_2025-05-01.csv", "profi_2025-05-08.csv"
+                "profi_2025-05-01.csv", "profi_2025-05-08.csv",
+                "emag_2025-05-20.csv","altex_2025-05-20.csv"
         );
 
         List<Product> products = loader.loadAllCSVs(csvFileNames);
@@ -32,8 +29,9 @@ public class BasketClient {
             System.out.println("1. View all products");
             System.out.println("2. Add item to basket");
             System.out.println("3. View basket");
-            System.out.println("4. Show Discounts");
-            System.out.println("5. Exit");
+            System.out.println("4. Show Discounts For Your Basket");
+            System.out.println("5. Best Discounts");
+            System.out.println("6. Exit");
             System.out.print("Choose an option: ");
 
             String choice = scanner.nextLine().trim();
@@ -83,7 +81,8 @@ public class BasketClient {
                             System.out.print("Enter quantity: ");
                             int qty = Integer.parseInt(scanner.nextLine().trim());
 
-                            basket.getItems().add(new BasketItem(selected.getProductName(), selected.getBrand(), qty));
+                            basket.getItems().add(new BasketItem(selected.getProductName(), selected.getBrand(), qty, selected.getSource()));
+
                             System.out.println("✅ Added to basket.");
                         } catch (NumberFormatException e) {
                             System.out.println("❌ Invalid input.");
@@ -109,7 +108,9 @@ public class BasketClient {
                             "lidl_discounts_2025-05-01.csv",
                             "lidl_discounts_2025-05-08.csv",
                             "profi_discounts_2025-05-01.csv",
-                            "profi_discounts_2025-05-08.csv"
+                            "profi_discounts_2025-05-08.csv",
+                            "emag_discounts_2025-05-20.csv",
+                            "altex_discounts-2025-05-20.csv"
                     );
 
                     List<Discount> allDiscounts = discountService.loadDiscounts(discountFileNames);
@@ -128,6 +129,32 @@ public class BasketClient {
                 }
 
                 case "5" -> {
+                    List<String> discountFileNames = List.of(
+                            "kaufland_discounts_2025-05-01.csv",
+                            "kaufland_discounts_2025-05-08.csv",
+                            "lidl_discounts_2025-05-01.csv",
+                            "lidl_discounts_2025-05-08.csv",
+                            "profi_discounts_2025-05-01.csv",
+                            "profi_discounts_2025-05-08.csv",
+                            "emag_discounts_2025-05-20.csv",
+                            "altex_discounts-2025-05-20.csv"
+                    );
+                    List<Discount> allDiscounts = discountService.loadDiscounts(discountFileNames);
+
+                    System.out.println("=== Best Discounts Available ===");
+                    List<Discount> bestDiscounts = discountService.getBestDiscounts(allDiscounts, 10);
+                    if (bestDiscounts.isEmpty()) {
+                        System.out.println("No discounts found.");
+                    } else {
+                        for (Discount d : bestDiscounts) {
+                            System.out.printf("- %s (%s): %d%% off at %s from %s to %s%n",
+                                    d.getProductName(), d.getBrand(), d.getPercentageOfDiscount(), d.getSource(),
+                                    d.getFromDate(), d.getToDate());
+                        }
+                    }
+                }
+
+                case "6" -> {
                     System.out.println("👋 Exiting. Goodbye!");
                     return;
                 }

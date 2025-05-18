@@ -4,15 +4,16 @@ public class BasketItem {
     private String productName;
     private String brand;
     private int quantity;
-
+    private String source;   // <-- new field
 
     public BasketItem() {}
-    public BasketItem(String productName,String brand, int quantity) {
+
+    public BasketItem(String productName, String brand, int quantity, String source) {
         this.productName = productName;
         this.brand = brand;
         this.quantity = quantity;
+        this.source = source;  // set source here
     }
-
 
     public String getProductName() {
         return productName;
@@ -26,8 +27,16 @@ public class BasketItem {
     public void setQuantity(int quantity) {
         this.quantity = quantity;
     }
-
-    public String getBrand() { return brand; }
-    public void setBrand(String brand) { this.brand = brand; }
+    public String getBrand() {
+        return brand;
+    }
+    public void setBrand(String brand) {
+        this.brand = brand;
+    }
+    public String getSource() {
+        return source;
+    }
+    public void setSource(String source) {
+        this.source = source;
+    }
 }
-
