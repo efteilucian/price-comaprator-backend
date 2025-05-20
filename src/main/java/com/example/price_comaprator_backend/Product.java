@@ -28,11 +28,9 @@ public class Product {
     @CsvBindByName(column = "currency")
     private String currency;
 
-
     private String source;
 
-
-
+    // Getters and setters
     public String getProductId() { return productId; }
     public void setProductId(String productId) { this.productId = productId; }
 
@@ -59,4 +57,26 @@ public class Product {
 
     public String getSource() { return source; }
     public void setSource(String source) { this.source = source; }
+
+    // New helper to parse quantity as double
+    public Double getMeasurementQuantity() {
+        if (packageQuantity == null) return null;
+        try {
+            return Double.parseDouble(packageQuantity);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    // New helper to expose unit
+    public String getMeasurementUnit() {
+        return packageUnit;
+    }
+
+    // Compute price per unit (e.g., price per kg, liter, etc.)
+    public Double getPricePerUnit() {
+        Double quantity = getMeasurementQuantity();
+        if (quantity == null || price == null || quantity == 0.0) return null;
+        return price / quantity;
+    }
 }
