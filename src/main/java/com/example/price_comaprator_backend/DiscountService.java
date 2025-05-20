@@ -32,7 +32,7 @@ public class DiscountService {
                         .build()
                         .parse();
 
-                // 🏷️ Extract store name (e.g., "kaufland" from "kaufland_discounts_2025-05-08.csv")
+
                 String store = fileName.split("_")[0];
                 for (Discount discount : fileDiscounts) {
                     discount.setSource(store);
@@ -74,14 +74,14 @@ public class DiscountService {
         return matched;
     }
 
-    //shows only best 10 discouns
+
     public List<Discount> getBestDiscounts(List<Discount> allDiscounts, int limit) {
         Map<String, Discount> bestPerProduct = new HashMap<>();
 
         for (Discount d : allDiscounts) {
             String key = (d.getProductName() + "_" + d.getBrand()).toLowerCase().trim();
 
-            // Only keep if it's the best discount so far for this product
+
             if (!bestPerProduct.containsKey(key) || d.getPercentageOfDiscount() > bestPerProduct.get(key).getPercentageOfDiscount()) {
                 bestPerProduct.put(key, d);
             }

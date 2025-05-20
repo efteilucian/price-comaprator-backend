@@ -1,5 +1,5 @@
 product_id;product_name;product_category;brand;package_quantity;package_unit;price;currency
-P001;lapte zuzu;lactate;Zuzu;1.0;l;12.90;RON
+P001;lapte zuzu;lactate;Zuzu;1.0;l;11.90;RON
 P002;iaurt grecesc;lactate;Lidl;0.4;kg;11.50;RON
 P005;ouă mărimea M;ouă;Lidl;10.0;buc;12.20;RON
 P008;brânză telemea;lactate;Pilos;0.3;kg;12.80;RON

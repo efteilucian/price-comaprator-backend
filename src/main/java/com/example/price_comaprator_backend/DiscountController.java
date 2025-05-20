@@ -15,7 +15,7 @@ public class DiscountController {
 
     public DiscountController(DiscountService discountService) {
         this.discountService = discountService;
-        // Load once at startup
+
         this.allDiscounts = discountService.loadDiscounts(List.of(
                 "altex_discounts-2025-05-20.csv",
                 "emag_discounts_2025-05-20.csv",

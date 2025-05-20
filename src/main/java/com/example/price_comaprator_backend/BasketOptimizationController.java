@@ -2,6 +2,7 @@ package com.example.price_comaprator_backend;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
 
 @RestController
@@ -14,20 +15,12 @@ public class BasketOptimizationController {
         this.optimizationService = optimizationService;
     }
 
-    @PostMapping("/flat")
-    public ResponseEntity<List<OptimizedBasketItem>> optimizeFlat(@RequestBody ShoppingBasket basket) {
-        if (basket == null || basket.getItems().isEmpty()) {
+    @PostMapping
+    public ResponseEntity<List<OptimizedShoppingList>> optimize(@RequestBody ShoppingBasket basket) {
+        if (basket == null || basket.getItems() == null || basket.getItems().isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
-        List<OptimizedBasketItem> result = optimizationService.optimizeBasket(basket);
-        return ResponseEntity.ok(result);
-    }
 
-    @PostMapping("/by-store")
-    public ResponseEntity<List<OptimizedShoppingList>> optimizeByStore(@RequestBody ShoppingBasket basket) {
-        if (basket == null || basket.getItems().isEmpty()) {
-            return ResponseEntity.badRequest().build();
-        }
         List<OptimizedShoppingList> result = optimizationService.optimizeAndSplitByStore(basket);
         return ResponseEntity.ok(result);
     }

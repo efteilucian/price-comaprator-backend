@@ -24,7 +24,7 @@ public class BasketController {
         this.csvLoaderService = csvLoaderService;
         this.optimizationService = optimizationService;
 
-        // Load products (for validation)
+
         this.allProducts = csvLoaderService.loadAllCSVs(List.of(
                 "emag_2025-05-20.csv",
                 "kaufland_2025-05-01.csv",
@@ -36,7 +36,7 @@ public class BasketController {
                 "altex_2025-05-20.csv"
         ));
 
-        // Load discounts
+
         this.allDiscounts = discountService.loadDiscounts(List.of(
                 "altex_discounts-2025-05-20.csv",
                 "emag_discounts_2025-05-20.csv",
@@ -71,7 +71,7 @@ public class BasketController {
         return new ArrayList<>(basket.getItems());
     }
 
-    // Remove item from basket by matching all key fields
+
     @DeleteMapping("/remove")
     public ResponseEntity<String> removeFromBasket(@RequestBody BasketItem item) {
         boolean removed = basket.getItems().removeIf(basketItem ->
@@ -98,13 +98,14 @@ public class BasketController {
         return discountService.findNewDiscounts(allDiscounts, days);
     }
 
-    // NEW: Optimize the current basket
+
     @GetMapping("/optimize")
-    public List<OptimizedBasketItem> optimizeBasket() {
-        return optimizationService.optimizeBasket(getBasketAsShoppingBasket());
+    public List<OptimizedShoppingList> optimizeBasket() {
+        return optimizationService.optimizeAndSplitByStore(getBasketAsShoppingBasket());
     }
 
-    // Helper to convert Basket to ShoppingBasket
+
+
     private ShoppingBasket getBasketAsShoppingBasket() {
         return new ShoppingBasket(new ArrayList<>(basket.getItems()));
     }
