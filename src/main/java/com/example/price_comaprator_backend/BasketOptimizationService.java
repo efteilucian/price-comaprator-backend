@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -15,38 +16,114 @@ import java.util.stream.Collectors;
 public class BasketOptimizationService {
 
     private static final Logger logger = LoggerFactory.getLogger(BasketOptimizationService.class);
-    private final List<PriceAlert> userAlerts = new ArrayList<>();
+
+    // Note: This 'userAlerts_BOS' list and its associated methods (addPriceAlert_BOS, checkPriceAlerts_BOS)
+    // are internal to BasketOptimizationService. They are separate from the primary alert functionality
+    // managed by PriceAlertService, which uses alerts added via the /api/alerts endpoint.
+    // This distinction is important if both sets of alert logic are active.
+    private final List<PriceAlert> userAlerts_BOS = new ArrayList<>();
+
     private final List<String> csvFilenames = List.of(
-            "altex_2025-05-20.csv",
-            "emag_2025-05-20.csv",
-            "kaufland_2025-05-01.csv",
-            "kaufland_2025-05-08.csv",
-            "lidl_2025-05-01.csv",
-            "lidl_2025-05-08.csv",
-            "profi_2025-05-01.csv",
-            "profi_2025-05-08.csv"
+            "altex_2025-05-20.csv", "emag_2025-05-20.csv",
+            "kaufland_2025-05-01.csv", "kaufland_2025-05-08.csv",
+            "lidl_2025-05-01.csv", "lidl_2025-05-08.csv",
+            "profi_2025-05-01.csv", "profi_2025-05-08.csv"
     );
 
-    private final List<Product> allProducts;
+    private List<Product> allProducts = new ArrayList<>();
 
     public BasketOptimizationService() {
-        logger.info("Loading all products from CSV resources...");
-        this.allProducts = loadAllProducts();
-        logger.info("✅ Loaded {} products total", allProducts.size());
+        logger.info("BasketOptimizationService: Initializing and loading products...");
+        this.allProducts = loadAllProductsFromCsv();
+        logger.info("BasketOptimizationService: ✅ Initially loaded and processed {} products total.", this.allProducts.size());
+    }
+
+    public synchronized List<Product> getAllProducts() {
+        return this.allProducts;
+    }
+
+    private List<Product> loadAllProductsFromCsv() {
+        logger.info("BasketOptimizationService: Starting to load product data from all CSVs.");
+        List<Product> products = new ArrayList<>();
+        ClassLoader classLoader = getClass().getClassLoader();
+
+        for (String filename : csvFilenames) {
+            logger.debug("BasketOptimizationService: Attempting to load file: {}", filename);
+            try (InputStream is = classLoader.getResourceAsStream(filename);
+                 InputStreamReader reader = new InputStreamReader(Objects.requireNonNull(is, "InputStream for " + filename + " was null. File not found in resources?"), StandardCharsets.UTF_8)) {
+
+                List<Product> fileProducts = new CsvToBeanBuilder<Product>(reader)
+                        .withType(Product.class)
+                        .withSeparator(';')
+                        .withIgnoreLeadingWhiteSpace(true)
+                        .build()
+                        .parse();
+
+                List<Product> validProducts = fileProducts.stream()
+                        .filter(p -> p.getProductName() != null && !p.getProductName().trim().isEmpty() &&
+                                p.getPrice() != null && p.getPrice() > 0 &&
+                                p.getPackageUnit() != null && !p.getPackageUnit().trim().isEmpty() &&
+                                p.getPackageQuantity() != null && !p.getPackageQuantity().trim().isEmpty())
+                        .peek(p -> {
+                            p.setSource(filename.split("_")[0]);
+                            // TRACE logs for detailed per-product loading steps
+                            logger.trace("RAW_LOAD - File: {}, Product: '{}', Parsed Price: {}, Parsed Currency: {}",
+                                    filename, p.getProductName(), p.getPrice(), p.getCurrency());
+                            p.calculateStandardizedMetrics(); // Product class internal logging (TRACE) will cover details
+                            logger.trace("METRICS_CALC - Product: '{}', Category: {}, StdUnit: {}, Price/StdUnit: {}, Src: {}",
+                                    p.getProductName(), p.getProductCategory(), p.getStandardUnit(),
+                                    (p.getPricePerStandardUnit() != null ? String.format("%.2f", p.getPricePerStandardUnit()) : "null"),
+                                    p.getSource());
+                        })
+                        .collect(Collectors.toList());
+
+                products.addAll(validProducts);
+                logger.info("BasketOptimizationService: Loaded {} valid products from {}.", validProducts.size(), filename);
+            } catch (NullPointerException e) {
+                logger.error("BasketOptimizationService: ❌ Resource not found (NullPointerException) for: {}. Check filename. Error: {}", filename, e.getMessage(), e);
+            } catch (Exception e) {
+                logger.error("BasketOptimizationService: ❌ Error reading or processing file {}: {}", filename, e.getMessage(), e);
+            }
+        }
+        logger.info("BasketOptimizationService: Finished loading products from CSVs. Total processed: {}.", products.size());
+        return products;
+    }
+
+    public synchronized void refreshProducts() {
+        logger.info("BasketOptimizationService: <<<< Starting manual refresh of products... >>>>");
+        this.allProducts = loadAllProductsFromCsv(); // Re-executes the loading logic
+        logger.info("BasketOptimizationService: ✅<<<< Finished manual refresh. {} products loaded. >>>>", this.allProducts.size());
+
+        // The following VERIFY RELOAD block is useful for specific debugging of reloads.
+        // It can be commented out for a standard demo to reduce log noise.
+        /*
+        if (!this.allProducts.isEmpty()) {
+            logger.debug("BasketOptimizationService: --- VERIFY RELOAD Sample (e.g., 'iphone' products) ---");
+            this.allProducts.stream()
+               .filter(p -> p.getProductName() != null && p.getProductName().toLowerCase().contains("iphone"))
+               .limit(2) // Log a small sample
+               .forEach(p -> logger.debug("VERIFY RELOAD - Product: Name='{}', Price={}, Source='{}'",
+                                        p.getProductName(), p.getPrice(), p.getSource()));
+        } else {
+            logger.warn("BasketOptimizationService: VERIFY RELOAD - allProducts list is EMPTY after refresh!");
+        }
+        */
     }
 
     public List<OptimizedBasketItem> optimizeBasket(ShoppingBasket basket) {
+        logger.info("Optimizing basket with {} item types.", basket.getItems() != null ? basket.getItems().size() : 0);
         if (basket == null || basket.getItems() == null || basket.getItems().isEmpty()) {
-            logger.warn("Received empty or null basket to optimize");
+            logger.warn("Received empty or null basket to optimize, returning empty list.");
             return Collections.emptyList();
         }
 
-        if (allProducts == null || allProducts.isEmpty()) {
-            logger.error("❗ Product list is empty. Cannot optimize basket.");
+        List<Product> currentProductList = getAllProducts();
+        if (currentProductList.isEmpty()) {
+            logger.error("Product list is empty. Cannot optimize basket.");
             return Collections.emptyList();
         }
 
-
+        // Groups basket items by normalized product name and sums their quantities.
         Map<String, Integer> groupedQuantities = basket.getItems().stream()
                 .collect(Collectors.groupingBy(
                         item -> normalize(item.getProductName()),
@@ -58,177 +135,135 @@ public class BasketOptimizationService {
         for (Map.Entry<String, Integer> entry : groupedQuantities.entrySet()) {
             String normalizedInput = entry.getKey();
             int totalQuantity = entry.getValue();
-            List<String> inputTokens = tokenize(normalizedInput);
+            logger.debug("Optimizing item: '{}' (normalized), quantity: {}", normalizedInput, totalQuantity);
 
-            logger.info("🔍 Searching for: '{}' (normalized)", normalizedInput);
+            // Strategy:
+            // 1. Attempt to find an exact match for the normalized product name.
+            // 2. If no exact match, fall back to similarity scoring (Jaccard index).
+            // In both cases, select the product with the lowest price among suitable matches.
 
-            // 1. Try exact normalized match
-            Optional<Product> exactMatch = allProducts.stream()
-                    .filter(p -> p.getProductName() != null)
+            Optional<Product> bestPriceMatch = currentProductList.stream()
+                    .filter(p -> p.getProductName() != null && p.getPrice() != null)
                     .filter(p -> normalize(p.getProductName()).equals(normalizedInput))
                     .min(Comparator.comparing(Product::getPrice));
 
-            if (exactMatch.isPresent()) {
-                Product product = exactMatch.get();
-                logger.info("✅ Exact match: {} ({}) at {} from {}",
-                        product.getProductName(), product.getBrand(), product.getPrice(), product.getSource());
-
-                optimizedItems.add(new OptimizedBasketItem(
-                        product.getProductName(),
-                        totalQuantity,
-                        product.getSource(),
-                        product.getPrice()
-                ));
-                continue;
+            if (bestPriceMatch.isPresent()) {
+                Product product = bestPriceMatch.get();
+                logger.info("Optimize - Exact name match for '{}': Found {} from {} at price {}.",
+                        normalizedInput, product.getProductName(), product.getSource(), product.getPrice());
+                optimizedItems.add(new OptimizedBasketItem(product.getProductName(), totalQuantity, product.getSource(), product.getPrice()));
+                continue; // Move to next basket item
             }
 
-            // 2. Jaccard token similarity fallback
-            List<Map.Entry<Product, Double>> scoredMatches = allProducts.stream()
-                    .filter(p -> p.getProductName() != null)
-                    .map(p -> {
-                        List<String> productTokens = tokenize(normalize(p.getProductName()));
-                        double score = tokenOverlapScore(inputTokens, productTokens);
-                        return new AbstractMap.SimpleEntry<>(p, score);
-                    })
-                    .filter(entry2 -> entry2.getValue() >= 0.2)
+            // Fallback to Jaccard similarity if no exact normalized name match
+            List<String> inputTokens = tokenize(normalizedInput);
+            List<Map.Entry<Product, Double>> scoredMatches = currentProductList.stream()
+                    .filter(p -> p.getProductName() != null && p.getPrice() != null)
+                    .map(p -> new AbstractMap.SimpleEntry<>(p, tokenOverlapScore(inputTokens, tokenize(normalize(p.getProductName())))))
+                    .filter(e -> e.getValue() >= 0.2) // Similarity score threshold
                     .sorted((e1, e2) -> {
-                        int cmp = Double.compare(e2.getValue(), e1.getValue());
-                        if (cmp == 0) {
-                            return Double.compare(e1.getKey().getPrice(), e2.getKey().getPrice());
-                        }
-                        return cmp;
+                        int cmp = Double.compare(e2.getValue(), e1.getValue()); // Higher score first
+                        return (cmp == 0) ? Double.compare(e1.getKey().getPrice(), e2.getKey().getPrice()) : cmp; // Then lower price
                     })
                     .collect(Collectors.toList());
 
             if (!scoredMatches.isEmpty()) {
                 Product product = scoredMatches.get(0).getKey();
-                logger.info("✅ Fallback match: {} ({}) at {} from {} [score: {}]",
-                        product.getProductName(), product.getBrand(), product.getPrice(), product.getSource(), scoredMatches.get(0).getValue());
-
-                optimizedItems.add(new OptimizedBasketItem(
-                        product.getProductName(),
-                        totalQuantity,
-                        product.getSource(),
-                        product.getPrice()
-                ));
+                logger.info("Optimize - Fallback similarity match for '{}': Found {} from {} at price {} (Score: {:.2f})",
+                        normalizedInput, product.getProductName(), product.getSource(), product.getPrice(), scoredMatches.get(0).getValue());
+                optimizedItems.add(new OptimizedBasketItem(product.getProductName(), totalQuantity, product.getSource(), product.getPrice()));
             } else {
-                logger.warn("❌ No match found for '{}'", normalizedInput);
-
-
-                allProducts.stream()
-                        .filter(p -> p.getProductName() != null)
-                        .sorted((p1, p2) -> Double.compare(
-                                tokenOverlapScore(inputTokens, tokenize(normalize(p2.getProductName()))),
-                                tokenOverlapScore(inputTokens, tokenize(normalize(p1.getProductName())))
-                        ))
-                        .limit(5)
-                        .forEach(p -> logger.info("🔍 Candidate: {}", p.getProductName()));
+                logger.warn("Optimize - No match (exact or similarity) found for basket item: '{}'", normalizedInput);
             }
         }
-
+        logger.info("Basket optimization finished. Found {} optimized items.", optimizedItems.size());
         return optimizedItems;
     }
 
-
     public List<OptimizedShoppingList> optimizeAndSplitByStore(ShoppingBasket basket) {
+        logger.info("Splitting optimized basket by store.");
         List<OptimizedBasketItem> flatList = optimizeBasket(basket);
         if (flatList.isEmpty()) {
-            logger.warn("No optimized items found to split by store");
+            logger.warn("No optimized items to split by store.");
             return Collections.emptyList();
         }
-
+        // Groups the optimized items by store to create per-store shopping lists.
         Map<String, List<OptimizedBasketItem>> itemsByStore = flatList.stream()
                 .collect(Collectors.groupingBy(OptimizedBasketItem::getStore));
 
-        return itemsByStore.entrySet().stream()
-                .map(entry -> new OptimizedShoppingList(entry.getKey(), entry.getValue()))
+        List<OptimizedShoppingList> result = itemsByStore.entrySet().stream()
+                .map(e -> new OptimizedShoppingList(e.getKey(), e.getValue()))
                 .collect(Collectors.toList());
+        logger.info("Optimized basket split into {} store lists.", result.size());
+        return result;
     }
 
-    public List<Product> loadAllProducts() {
-        List<Product> products = new ArrayList<>();
-        ClassLoader classLoader = getClass().getClassLoader();
-
-        for (String filename : csvFilenames) {
-            try (InputStream is = classLoader.getResourceAsStream(filename)) {
-                if (is == null) {
-                    logger.error("Resource not found: {}", filename);
-                    continue;
-                }
-
-                List<Product> fileProducts = new CsvToBeanBuilder<Product>(new InputStreamReader(is))
-                        .withType(Product.class)
-                        .withSeparator(';')
-                        .build()
-                        .parse();
-
-                List<Product> validProducts = fileProducts.stream()
-                        .filter(p -> p.getProductName() != null && p.getPrice() != null)
-                        .peek(p -> {
-                            p.setSource(filename);
-                            logger.debug("📦 Loaded product: '{}' normalized as '{}'",
-                                    p.getProductName(), normalize(p.getProductName()));
-                        })
-                        .collect(Collectors.toList());
-
-                products.addAll(validProducts);
-                logger.info("✅ Loaded {} valid products from {}", validProducts.size(), filename);
-            } catch (Exception e) {
-                logger.error("❌ Error reading file {}: {}", filename, e.getMessage());
-            }
-        }
-
-        return products;
-    }
-
+    // Normalizes strings for consistent comparison (lowercase, no diacritics, minimal punctuation).
     private static String normalize(String s) {
         if (s == null) return "";
         return Normalizer.normalize(s, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "")
                 .toLowerCase()
-                .replaceAll("[^a-z0-9 ]", "")
+                .replaceAll("[^a-z0-9 ]", "") // Keep letters, numbers, and spaces
                 .trim();
     }
 
+    // Splits a string into tokens (words).
     private static List<String> tokenize(String input) {
         if (input == null || input.isBlank()) return Collections.emptyList();
         return Arrays.asList(input.split("\\s+"));
     }
 
+    // Calculates Jaccard similarity score between two lists of tokens.
     private static double tokenOverlapScore(List<String> tokens1, List<String> tokens2) {
+        if (tokens1.isEmpty() || tokens2.isEmpty()) return 0.0;
         Set<String> set1 = new HashSet<>(tokens1);
         Set<String> set2 = new HashSet<>(tokens2);
-        long intersection = set1.stream().filter(set2::contains).count();
-        long union = set1.size() + set2.size() - intersection;
-        return union > 0 ? (double) intersection / union : 0.0;
+        set1.remove(""); set2.remove(""); // Ensure empty strings from split don't affect score
+        if (set1.isEmpty() || set2.isEmpty()) return 0.0;
+
+        long intersectionSize = set1.stream().filter(set2::contains).count();
+        long unionSize = set1.size() + set2.size() - intersectionSize;
+        return unionSize > 0 ? (double) intersectionSize / unionSize : 0.0;
     }
 
-    public void addPriceAlert(PriceAlert alert) {
-        userAlerts.add(alert);
-        logger.info("🔔 Added price alert for '{}' at {} RON", alert.getProductName(), alert.getTargetPrice());
+    // These internal alert methods are distinct from PriceAlertService.
+    // They operate on a list local to BasketOptimizationService.
+    public void addPriceAlert_BOS(PriceAlert alert) {
+        userAlerts_BOS.add(alert);
+        logger.info("(BOS Internal) Added price alert for: '{}', Target: {} {}",
+                alert.getProductName(), alert.getTargetPrice(), alert.getCurrency());
     }
 
-    public List<PriceAlertMatch> checkPriceAlerts() {
+    public List<PriceAlertMatch> checkPriceAlerts_BOS() {
+        logger.info("(BOS Internal) Checking {} internal alerts.", userAlerts_BOS.size());
         List<PriceAlertMatch> matches = new ArrayList<>();
+        List<Product> currentProductList = getAllProducts();
 
-        for (PriceAlert alert : userAlerts) {
+        if (currentProductList.isEmpty()) {
+            logger.warn("(BOS Internal) Product list is empty. Cannot check internal alerts.");
+            return matches;
+        }
+        for (PriceAlert alert : userAlerts_BOS) {
+            if (alert.getCurrency() == null || alert.getCurrency().isBlank()) {
+                logger.warn("(BOS Internal) Skipping internal alert for '{}' due to missing currency.", alert.getProductName());
+                continue;
+            }
             String normalizedAlertName = normalize(alert.getProductName());
-
-            allProducts.stream()
+            currentProductList.stream()
+                    .filter(p -> p.getProductName() != null && p.getPrice() != null && p.getCurrency() != null)
                     .filter(p -> normalize(p.getProductName()).equals(normalizedAlertName))
+                    .filter(p -> p.getCurrency().equalsIgnoreCase(alert.getCurrency()))
                     .filter(p -> p.getPrice() <= alert.getTargetPrice())
                     .forEach(p -> {
                         matches.add(new PriceAlertMatch(
-                                p.getProductName(),
-                                p.getPrice(),
-                                alert.getTargetPrice(),
-                                p.getSource()
-                        ));
-                        logger.info("✅ Alert matched: '{}' at {} in {} (target was {})",
-                                p.getProductName(), p.getPrice(), p.getSource(), alert.getTargetPrice());
+                                p.getProductName(), p.getPrice(), alert.getTargetPrice(), p.getSource()));
+                        logger.info("✅ (BOS Internal) Alert matched: '{}' at {} {} in store {} (Target: {} {})",
+                                p.getProductName(), p.getPrice(), p.getCurrency(), p.getSource(),
+                                alert.getTargetPrice(), alert.getCurrency());
                     });
         }
-
+        logger.info("(BOS Internal) Finished checking internal alerts. {} matches found.", matches.size());
         return matches;
     }
 }
