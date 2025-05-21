@@ -1,14 +1,14 @@
 package com.example.price_comaprator_backend;
 
 import com.opencsv.bean.CsvToBeanBuilder;
-import org.slf4j.Logger; // Added
-import org.slf4j.LoggerFactory; // Added
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.nio.charset.StandardCharsets; // Added for good practice
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 @Service
 public class DiscountService {
 
-    private static final Logger logger = LoggerFactory.getLogger(DiscountService.class); // Added logger
+    private static final Logger logger = LoggerFactory.getLogger(DiscountService.class);
 
     /**
      * Loads discount data from a list of specified CSV filenames.
@@ -30,10 +30,10 @@ public class DiscountService {
         List<Discount> discounts = new ArrayList<>();
 
         for (String fileName : fileNames) {
-            String resourcePath = "discounts/" + fileName; // Standardized resource path
+            String resourcePath = "discounts/" + fileName;
             logger.debug("DiscountService: Loading discounts from resource: {}", resourcePath);
             try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream(resourcePath);
-                 // Ensure the reader is properly closed, and handle null inputStream
+
                  Reader reader = new InputStreamReader(Objects.requireNonNull(inputStream, "InputStream for " + resourcePath + " was null."), StandardCharsets.UTF_8)) {
 
                 List<Discount> fileDiscounts = new CsvToBeanBuilder<Discount>(reader)
@@ -44,7 +44,7 @@ public class DiscountService {
                         .parse();
 
                 // Extracts store name from filename (e.g., "kaufland" from "kaufland_discounts_...")
-                String store = "unknown"; // Default source
+                String store = "unknown";
                 if (fileName != null && fileName.contains("_")) {
                     store = fileName.split("_")[0].toLowerCase();
                 } else {
@@ -62,7 +62,6 @@ public class DiscountService {
                 logger.error("DiscountService: ❌ Discount resource not found (NullPointerException) at path: {}. Check if file exists and path is correct. Error: {}", resourcePath, e.getMessage());
             }
             catch (Exception e) {
-                // General exception catch for any other issues during file processing or parsing.
                 logger.error("DiscountService: ❌ Failed to load or parse discounts from {}: {}", resourcePath, e.getMessage(), e);
             }
         }
@@ -83,11 +82,10 @@ public class DiscountService {
         List<Discount> matched = new ArrayList<>();
         if (basket.isEmpty() || allDiscounts.isEmpty()) {
             logger.debug("Basket or global discount list is empty, no discounts matched.");
-            return matched; // Return empty list if nothing to compare
+            return matched;
         }
 
         for (BasketItem item : basket) {
-            // Normalize basket item details for reliable comparison.
             String basketProductName = item.getProductName().trim().toLowerCase();
             String basketBrand = (item.getBrand() != null) ? item.getBrand().trim().toLowerCase() : "";
             String basketSource = (item.getSource() != null) ? item.getSource().trim().toLowerCase() : "";
@@ -95,20 +93,18 @@ public class DiscountService {
             logger.trace("Checking discounts for basket item: Name='{}', Brand='{}', Source='{}'", basketProductName, basketBrand, basketSource);
 
             for (Discount discount : allDiscounts) {
-                // Ensure discount has necessary fields for comparison.
+
                 if (discount.getProductName() != null && discount.getBrand() != null && discount.getSource() != null) {
                     String discountProductName = discount.getProductName().trim().toLowerCase();
                     String discountBrand = discount.getBrand().trim().toLowerCase();
                     String discountSource = discount.getSource().trim().toLowerCase();
 
-                    // Perform case-insensitive match on product name, brand, and source.
                     if (basketProductName.equals(discountProductName) &&
                             basketBrand.equals(discountBrand) &&
                             basketSource.equals(discountSource)) {
                         logger.debug("Match found for basket item '{}': Discount on '{}' from '{}'", item.getProductName(), discount.getProductName(), discount.getSource());
                         matched.add(discount);
-                        // Consider if only one discount should apply per unique basket item.
-                        // If so, a 'break;' here would stop checking further discounts for this item.
+
                     }
                 }
             }
@@ -132,7 +128,7 @@ public class DiscountService {
             return Collections.emptyList();
         }
 
-        // Use a Map to ensure only the highest percentage discount is kept for each unique product (name_brand).
+
         Map<String, Discount> bestPerProduct = new HashMap<>();
         for (Discount d : allDiscounts) {
             if (d.getProductName() == null || d.getBrand() == null) {
@@ -141,14 +137,14 @@ public class DiscountService {
             }
             String key = (d.getProductName() + "_" + d.getBrand()).toLowerCase().trim();
 
-            // Add to map if new, or if this discount has a higher percentage than the one already mapped for the key.
+
             bestPerProduct.merge(key, d, (oldD, newD) -> newD.getPercentageOfDiscount() > oldD.getPercentageOfDiscount() ? newD : oldD);
         }
 
         List<Discount> topDiscounts = bestPerProduct.values().stream()
-                .sorted(Comparator.comparingInt(Discount::getPercentageOfDiscount).reversed()) // Sort by highest percentage
+                .sorted(Comparator.comparingInt(Discount::getPercentageOfDiscount).reversed()) 
                 .limit(limit)
-                .collect(Collectors.toList()); // Using toList() for immutability if on Java 16+; Collectors.toList() for broader compatibility.
+                .collect(Collectors.toList());
 
         logger.info("Returning {} top discounts.", topDiscounts.size());
         return topDiscounts;
@@ -172,7 +168,7 @@ public class DiscountService {
         List<Discount> newDiscountsList = allDiscounts.stream()
                 .filter(d -> d.getFromDate() != null && !d.getFromDate().isBefore(cutoffDate))
                 .collect(Collectors.toList());
-        logger.info("Found {} new discounts starting on or after {}.", newDiscountsList.size(), cutoffDate.plusDays(1)); // plusDays(1) makes "within last X days" more intuitive
+        logger.info("Found {} new discounts starting on or after {}.", newDiscountsList.size(), cutoffDate.plusDays(1));
         return newDiscountsList;
     }
 }

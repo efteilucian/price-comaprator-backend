@@ -1,4 +1,4 @@
 product_id;product_name;product_category;brand;package_quantity;package_unit;price;currency
 P001;lapte zuzu;lactate;Zuzu;1.0;l;20.10;RON
-P002;iphone 6;electronice;Apple;0.2;g;50;EUR
+P002;iphone 6;electronice;Apple;0.2;g;100;EUR
 P003;Monitor G5;electronice;Samsung;2;kg;500;EUR

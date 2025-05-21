@@ -1,36 +1,34 @@
 package com.example.price_comaprator_backend;
 
-import org.slf4j.Logger; // Added for logging
-import org.slf4j.LoggerFactory; // Added for logging
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
 
 import java.util.ArrayList;
-import java.util.Collections; // For optimizeBasket empty return
+import java.util.Collections;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/basket")
 public class BasketController {
 
-    private static final Logger logger = LoggerFactory.getLogger(BasketController.class); // Added logger
+    private static final Logger logger = LoggerFactory.getLogger(BasketController.class);
 
-    // Manages the current user's shopping basket in memory for this session.
+
     private final Basket sessionBasket = new Basket();
     private final DiscountService discountService;
-    // private final CSVLoaderService csvLoaderService; // Kept for current functionality, but see constructor note
     private final BasketOptimizationService optimizationService;
 
-    // These lists hold data loaded specifically by this controller instance at creation.
-    // Note: This data is not synchronized with BasketOptimizationService's reloaded product data.
+
     private final List<Product> controllerLoadedProducts;
     private final List<Discount> controllerLoadedDiscounts;
 
     public BasketController(DiscountService discountService, CSVLoaderService csvLoaderService,
                             BasketOptimizationService optimizationService) {
         this.discountService = discountService;
-        // this.csvLoaderService = csvLoaderService; // Instance variable not strictly needed if only used in constructor
+
         this.optimizationService = optimizationService;
 
         logger.info("BasketController initializing...");
@@ -46,7 +44,7 @@ public class BasketController {
         ));
         logger.info("BasketController: Loaded {} products for its internal use.", this.controllerLoadedProducts.size());
 
-        // Loads an initial snapshot of discounts specific to this controller instance.
+
         this.controllerLoadedDiscounts = discountService.loadDiscounts(List.of(
                 "altex_discounts-2025-05-20.csv", "emag_discounts_2025-05-20.csv",
                 "kaufland_discounts_2025-05-01.csv", "kaufland_discounts_2025-05-08.csv",
@@ -64,8 +62,8 @@ public class BasketController {
         // Validates if the product (name, brand, source combination) exists in the controller's loaded product list.
         boolean productExists = controllerLoadedProducts.stream().anyMatch(p ->
                 p.getProductName().equalsIgnoreCase(item.getProductName()) &&
-                        (item.getBrand() == null || p.getBrand() == null || p.getBrand().equalsIgnoreCase(item.getBrand())) && // More robust null check for brand
-                        (item.getSource() == null || p.getSource() == null || p.getSource().equalsIgnoreCase(item.getSource())) // More robust null check for source
+                        (item.getBrand() == null || p.getBrand() == null || p.getBrand().equalsIgnoreCase(item.getBrand())) &&
+                        (item.getSource() == null || p.getSource() == null || p.getSource().equalsIgnoreCase(item.getSource()))
         );
 
         if (!productExists) {
@@ -83,7 +81,7 @@ public class BasketController {
     @GetMapping
     public List<BasketItem> getBasket() {
         logger.info("Request to get basket contents. Current item count: {}", sessionBasket.getItems().size());
-        return new ArrayList<>(sessionBasket.getItems()); // Return a copy to prevent external modification
+        return new ArrayList<>(sessionBasket.getItems());
     }
 
     @DeleteMapping("/remove")
@@ -120,27 +118,27 @@ public class BasketController {
     @GetMapping("/discounts/new")
     public List<Discount> getNewDiscounts(@RequestParam(defaultValue = "1") int days) {
         logger.info("Request for new discounts from the last {} day(s).", days);
-        // Uses the controller's initially loaded snapshot of discounts.
+
         List<Discount> newDiscounts = discountService.findNewDiscounts(controllerLoadedDiscounts, days);
         logger.info("Found {} new discounts.", newDiscounts.size());
         return newDiscounts;
     }
 
     @GetMapping("/optimize")
-    public List<OptimizedShoppingList> optimizeCurrentBasket() { // Renamed method for clarity
+    public List<OptimizedShoppingList> optimizeCurrentBasket() {
         logger.info("Request to optimize current session basket.");
         ShoppingBasket currentShoppingBasket = getBasketAsShoppingBasket();
         if (currentShoppingBasket.getItems().isEmpty()) {
             logger.info("Basket is empty, no optimization to perform.");
-            return Collections.emptyList(); // Return empty list for an empty basket
+            return Collections.emptyList();
         }
-        // Optimization uses the product list managed by BasketOptimizationService (which can be reloaded).
+
         List<OptimizedShoppingList> optimizedResult = optimizationService.optimizeAndSplitByStore(currentShoppingBasket);
         logger.info("Basket optimization complete. Result contains {} store-specific lists.", optimizedResult.size());
         return optimizedResult;
     }
 
-    // Helper to convert the session's list of BasketItems to a ShoppingBasket DTO.
+
     private ShoppingBasket getBasketAsShoppingBasket() {
         return new ShoppingBasket(new ArrayList<>(sessionBasket.getItems()));
     }

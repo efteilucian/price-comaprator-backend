@@ -17,10 +17,7 @@ public class BasketOptimizationService {
 
     private static final Logger logger = LoggerFactory.getLogger(BasketOptimizationService.class);
 
-    // Note: This 'userAlerts_BOS' list and its associated methods (addPriceAlert_BOS, checkPriceAlerts_BOS)
-    // are internal to BasketOptimizationService. They are separate from the primary alert functionality
-    // managed by PriceAlertService, which uses alerts added via the /api/alerts endpoint.
-    // This distinction is important if both sets of alert logic are active.
+
     private final List<PriceAlert> userAlerts_BOS = new ArrayList<>();
 
     private final List<String> csvFilenames = List.of(
@@ -66,10 +63,9 @@ public class BasketOptimizationService {
                                 p.getPackageQuantity() != null && !p.getPackageQuantity().trim().isEmpty())
                         .peek(p -> {
                             p.setSource(filename.split("_")[0]);
-                            // TRACE logs for detailed per-product loading steps
                             logger.trace("RAW_LOAD - File: {}, Product: '{}', Parsed Price: {}, Parsed Currency: {}",
                                     filename, p.getProductName(), p.getPrice(), p.getCurrency());
-                            p.calculateStandardizedMetrics(); // Product class internal logging (TRACE) will cover details
+                            p.calculateStandardizedMetrics();
                             logger.trace("METRICS_CALC - Product: '{}', Category: {}, StdUnit: {}, Price/StdUnit: {}, Src: {}",
                                     p.getProductName(), p.getProductCategory(), p.getStandardUnit(),
                                     (p.getPricePerStandardUnit() != null ? String.format("%.2f", p.getPricePerStandardUnit()) : "null"),
@@ -91,23 +87,10 @@ public class BasketOptimizationService {
 
     public synchronized void refreshProducts() {
         logger.info("BasketOptimizationService: <<<< Starting manual refresh of products... >>>>");
-        this.allProducts = loadAllProductsFromCsv(); // Re-executes the loading logic
+        this.allProducts = loadAllProductsFromCsv();
         logger.info("BasketOptimizationService: ✅<<<< Finished manual refresh. {} products loaded. >>>>", this.allProducts.size());
 
-        // The following VERIFY RELOAD block is useful for specific debugging of reloads.
-        // It can be commented out for a standard demo to reduce log noise.
-        /*
-        if (!this.allProducts.isEmpty()) {
-            logger.debug("BasketOptimizationService: --- VERIFY RELOAD Sample (e.g., 'iphone' products) ---");
-            this.allProducts.stream()
-               .filter(p -> p.getProductName() != null && p.getProductName().toLowerCase().contains("iphone"))
-               .limit(2) // Log a small sample
-               .forEach(p -> logger.debug("VERIFY RELOAD - Product: Name='{}', Price={}, Source='{}'",
-                                        p.getProductName(), p.getPrice(), p.getSource()));
-        } else {
-            logger.warn("BasketOptimizationService: VERIFY RELOAD - allProducts list is EMPTY after refresh!");
-        }
-        */
+
     }
 
     public List<OptimizedBasketItem> optimizeBasket(ShoppingBasket basket) {
@@ -123,7 +106,7 @@ public class BasketOptimizationService {
             return Collections.emptyList();
         }
 
-        // Groups basket items by normalized product name and sums their quantities.
+
         Map<String, Integer> groupedQuantities = basket.getItems().stream()
                 .collect(Collectors.groupingBy(
                         item -> normalize(item.getProductName()),
@@ -137,10 +120,6 @@ public class BasketOptimizationService {
             int totalQuantity = entry.getValue();
             logger.debug("Optimizing item: '{}' (normalized), quantity: {}", normalizedInput, totalQuantity);
 
-            // Strategy:
-            // 1. Attempt to find an exact match for the normalized product name.
-            // 2. If no exact match, fall back to similarity scoring (Jaccard index).
-            // In both cases, select the product with the lowest price among suitable matches.
 
             Optional<Product> bestPriceMatch = currentProductList.stream()
                     .filter(p -> p.getProductName() != null && p.getPrice() != null)
@@ -152,18 +131,18 @@ public class BasketOptimizationService {
                 logger.info("Optimize - Exact name match for '{}': Found {} from {} at price {}.",
                         normalizedInput, product.getProductName(), product.getSource(), product.getPrice());
                 optimizedItems.add(new OptimizedBasketItem(product.getProductName(), totalQuantity, product.getSource(), product.getPrice()));
-                continue; // Move to next basket item
+                continue;
             }
 
-            // Fallback to Jaccard similarity if no exact normalized name match
+
             List<String> inputTokens = tokenize(normalizedInput);
             List<Map.Entry<Product, Double>> scoredMatches = currentProductList.stream()
                     .filter(p -> p.getProductName() != null && p.getPrice() != null)
                     .map(p -> new AbstractMap.SimpleEntry<>(p, tokenOverlapScore(inputTokens, tokenize(normalize(p.getProductName())))))
-                    .filter(e -> e.getValue() >= 0.2) // Similarity score threshold
+                    .filter(e -> e.getValue() >= 0.2)
                     .sorted((e1, e2) -> {
-                        int cmp = Double.compare(e2.getValue(), e1.getValue()); // Higher score first
-                        return (cmp == 0) ? Double.compare(e1.getKey().getPrice(), e2.getKey().getPrice()) : cmp; // Then lower price
+                        int cmp = Double.compare(e2.getValue(), e1.getValue());
+                        return (cmp == 0) ? Double.compare(e1.getKey().getPrice(), e2.getKey().getPrice()) : cmp;
                     })
                     .collect(Collectors.toList());
 
@@ -198,28 +177,28 @@ public class BasketOptimizationService {
         return result;
     }
 
-    // Normalizes strings for consistent comparison (lowercase, no diacritics, minimal punctuation).
+
     private static String normalize(String s) {
         if (s == null) return "";
         return Normalizer.normalize(s, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "")
                 .toLowerCase()
-                .replaceAll("[^a-z0-9 ]", "") // Keep letters, numbers, and spaces
+                .replaceAll("[^a-z0-9 ]", "")
                 .trim();
     }
 
-    // Splits a string into tokens (words).
+
     private static List<String> tokenize(String input) {
         if (input == null || input.isBlank()) return Collections.emptyList();
         return Arrays.asList(input.split("\\s+"));
     }
 
-    // Calculates Jaccard similarity score between two lists of tokens.
+
     private static double tokenOverlapScore(List<String> tokens1, List<String> tokens2) {
         if (tokens1.isEmpty() || tokens2.isEmpty()) return 0.0;
         Set<String> set1 = new HashSet<>(tokens1);
         Set<String> set2 = new HashSet<>(tokens2);
-        set1.remove(""); set2.remove(""); // Ensure empty strings from split don't affect score
+        set1.remove(""); set2.remove("");
         if (set1.isEmpty() || set2.isEmpty()) return 0.0;
 
         long intersectionSize = set1.stream().filter(set2::contains).count();
@@ -227,8 +206,8 @@ public class BasketOptimizationService {
         return unionSize > 0 ? (double) intersectionSize / unionSize : 0.0;
     }
 
-    // These internal alert methods are distinct from PriceAlertService.
-    // They operate on a list local to BasketOptimizationService.
+
+
     public void addPriceAlert_BOS(PriceAlert alert) {
         userAlerts_BOS.add(alert);
         logger.info("(BOS Internal) Added price alert for: '{}', Target: {} {}",

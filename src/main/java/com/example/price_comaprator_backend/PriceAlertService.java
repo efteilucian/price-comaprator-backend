@@ -14,7 +14,7 @@ public class PriceAlertService {
 
     private static final Logger logger = LoggerFactory.getLogger(PriceAlertService.class);
     private final BasketOptimizationService basketOptimizationService;
-    private final List<PriceAlert> alerts = new ArrayList<>(); // User-defined alerts managed by this service
+    private final List<PriceAlert> alerts = new ArrayList<>();
 
     public PriceAlertService(BasketOptimizationService basketOptimizationService) {
         this.basketOptimizationService = basketOptimizationService;
@@ -23,7 +23,7 @@ public class PriceAlertService {
     public void addAlert(PriceAlert alert) {
         if (alert.getProductName() == null || alert.getProductName().isBlank() ||
                 alert.getCurrency() == null || alert.getCurrency().isBlank() ||
-                alert.getTargetPrice() <= 0) { // Added target price validation
+                alert.getTargetPrice() <= 0) {
             logger.warn("Attempted to add an invalid alert (null/blank fields or non-positive target price): {}", alert);
 
             return;
@@ -34,11 +34,11 @@ public class PriceAlertService {
     }
 
     public List<PriceAlert> getAllAlerts() {
-        return new ArrayList<>(alerts); // Return a copy
+        return new ArrayList<>(alerts);
     }
 
     public List<PriceAlert> checkAlerts() {
-        List<Product> allProducts = basketOptimizationService.getAllProducts(); // Gets the current (potentially reloaded) list
+        List<Product> allProducts = basketOptimizationService.getAllProducts();
         List<PriceAlert> triggeredAlerts = new ArrayList<>();
 
         if (allProducts == null || allProducts.isEmpty()) {
@@ -125,10 +125,10 @@ public class PriceAlertService {
     private String normalize(String s) {
         if (s == null) return "";
         String normalized = Normalizer.normalize(s, Normalizer.Form.NFD);
-        normalized = normalized.replaceAll("\\p{M}", "");          // Remove diacritical marks
-        normalized = normalized.toLowerCase();                               // To lower case
-        normalized = normalized.replaceAll("[^a-z0-9 ]", "");   // Remove non-alphanumeric BUT KEEP SPACES
-        normalized = normalized.trim();                                      // Trim leading/trailing
+        normalized = normalized.replaceAll("\\p{M}", "");
+        normalized = normalized.toLowerCase();
+        normalized = normalized.replaceAll("[^a-z0-9 ]", "");
+        normalized = normalized.trim();
 
         return normalized;
     }

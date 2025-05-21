@@ -2,8 +2,8 @@ package com.example.price_comaprator_backend;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.slf4j.Logger; // Import Logger
-import org.slf4j.LoggerFactory; // Import LoggerFactory
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
@@ -11,7 +11,7 @@ import java.util.List;
 @RequestMapping("/api/alerts")
 public class PriceAlertController {
 
-    private static final Logger logger = LoggerFactory.getLogger(PriceAlertController.class); // Added logger
+    private static final Logger logger = LoggerFactory.getLogger(PriceAlertController.class);
     private final PriceAlertService alertService;
 
     public PriceAlertController(PriceAlertService alertService) {
@@ -25,7 +25,7 @@ public class PriceAlertController {
             logger.warn("Received invalid alert creation request: Missing name, price, or currency.");
             return ResponseEntity.badRequest().body("❌ Product name, target price, and currency are required for an alert.");
         }
-        alertService.addAlert(alert); // PriceAlertService now handles detailed logging
+        alertService.addAlert(alert);
         return ResponseEntity.ok("✅ Alert added for " + alert.getProductName());
     }
 
@@ -35,7 +35,7 @@ public class PriceAlertController {
     }
 
     @GetMapping("/check")
-    public List<PriceAlert> checkAlerts() { // This now returns PriceAlert objects representing triggered alerts
+    public List<PriceAlert> checkAlerts() {
         return alertService.checkAlerts();
     }
 }

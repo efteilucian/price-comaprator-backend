@@ -4,7 +4,7 @@ public class BasketItem {
     private String productName;
     private String brand;
     private int quantity;
-    private String source;   // <-- new field
+    private String source;
 
     public BasketItem() {}
 
@@ -12,7 +12,7 @@ public class BasketItem {
         this.productName = productName;
         this.brand = brand;
         this.quantity = quantity;
-        this.source = source;  // set source here
+        this.source = source;
     }
 
     public String getProductName() {

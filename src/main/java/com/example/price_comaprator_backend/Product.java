@@ -1,6 +1,6 @@
 package com.example.price_comaprator_backend;
 
-import com.example.price_comaprator_backend.UnitConverter; // Import the new utility
+
 import com.opencsv.bean.CsvBindByName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,12 +34,12 @@ public class Product {
 
     private String source;
 
-    // New fields for standardized comparison
+
     private Double pricePerStandardUnit;
-    private String standardUnit; // e.g., "kg", "l", "item"
+    private String standardUnit;
     private UnitConverter.BaseUnitType baseUnitType;
 
-    // Getters and setters for existing fields...
+
     public String getProductId() { return productId; }
     public void setProductId(String productId) { this.productId = productId; }
     public String getProductName() { return productName; }
@@ -59,11 +59,11 @@ public class Product {
     public String getSource() { return source; }
     public void setSource(String source) { this.source = source; }
 
-    // --- Enhanced Methods ---
 
-    // Call this after setting packageQuantity, packageUnit, and price (e.g., after loading from CSV)
+
+
     public void calculateStandardizedMetrics() {
-        if (this.productName == null) { // Basic sanity check
+        if (this.productName == null) {
             logger.warn("Calculating standardized metrics for product with null name. This might indicate an issue.");
         }
         if (this.packageUnit == null || this.packageUnit.trim().isEmpty() ||
@@ -71,14 +71,14 @@ public class Product {
                 this.price == null) {
             this.pricePerStandardUnit = null;
             this.standardUnit = (this.packageUnit != null && !this.packageUnit.trim().isEmpty()) ? this.packageUnit.toLowerCase().trim() : "unknown";
-            this.baseUnitType = UnitConverter.getBaseUnitType(this.packageUnit); // Still try to get type if unit exists
+            this.baseUnitType = UnitConverter.getBaseUnitType(this.packageUnit);
             if(this.price == null) logger.trace("Product '{}': Price is null, cannot calculate price per unit.", this.productName);
             else if (this.packageQuantity == null || this.packageQuantity.trim().isEmpty()) logger.trace("Product '{}': PackageQuantity is null/empty.", this.productName);
             else if (this.packageUnit == null || this.packageUnit.trim().isEmpty()) logger.trace("Product '{}': PackageUnit is null/empty.", this.productName);
             return;
         }
 
-        Double quantityValue = getMeasurementQuantity(); // Parses packageQuantity to Double
+        Double quantityValue = getMeasurementQuantity();
         if (quantityValue == null || quantityValue == 0.0) {
             this.pricePerStandardUnit = null;
             this.standardUnit = this.packageUnit.toLowerCase().trim();
@@ -87,24 +87,21 @@ public class Product {
             return;
         }
 
-        // <<< MODIFICATION FOR ALWAYS COUNT CATEGORIES >>>
+
         if (UnitConverter.isAlwaysCountCategory(this.productCategory)) {
             this.baseUnitType = UnitConverter.BaseUnitType.COUNT;
             this.standardUnit = "item";
-            // For these categories, we consider the product as a single countable unit,
-            // regardless of its listed package_quantity or package_unit if they imply weight/volume.
-            // The price is for this one "item".
-            this.pricePerStandardUnit = this.price / 1.0; // Price for 1 item.
+            this.pricePerStandardUnit = this.price / 1.0;
             logger.trace("Product '{}' in category '{}' treated as COUNT, price/item: {}",
                     this.productName, this.productCategory, this.pricePerStandardUnit);
-            return; // Skip further unit conversion for these categories
+            return;
         }
-        // <<< END OF ALWAYS COUNT MODIFICATION >>>
+
 
         String originalUnitClean = this.packageUnit.toLowerCase().trim();
         this.baseUnitType = UnitConverter.getBaseUnitType(originalUnitClean);
-        this.standardUnit = UnitConverter.getBaseUnit(originalUnitClean); // e.g., "g" -> "kg", or "box" -> "box" if not in map
-        Double conversionFactor = UnitConverter.getConversionFactor(originalUnitClean); // e.g., "g" -> 0.001
+        this.standardUnit = UnitConverter.getBaseUnit(originalUnitClean);
+        Double conversionFactor = UnitConverter.getConversionFactor(originalUnitClean);
 
         if (conversionFactor != null && this.baseUnitType != UnitConverter.BaseUnitType.UNKNOWN) {
             double quantityInStandardUnits = quantityValue * conversionFactor;
@@ -116,15 +113,14 @@ public class Product {
                         this.productName, quantityInStandardUnits, quantityValue, originalUnitClean, conversionFactor);
             }
         } else {
-            // Unit not recognized by UnitConverter or type is UNKNOWN for a non-ALWAYS_COUNT category
+
             this.pricePerStandardUnit = null;
-            // standardUnit would have been set to originalUnitClean by getBaseUnit's default
-            // baseUnitType would have been set to UNKNOWN by getBaseUnitType's default
+
             logger.trace("Product '{}': No conversion factor or unknown unit type for unit '{}'. Price/StdUnit set to null.", this.productName, originalUnitClean);
         }
     }
 
-    // Helper to parse packageQuantity (String) into Double
+    // parse packageQuantity (String) into Double
     public Double getMeasurementQuantity() {
         if (packageQuantity == null || packageQuantity.trim().isEmpty()) return null;
         try {
@@ -165,7 +161,7 @@ public class Product {
                 ", packageUnit='" + packageUnit + '\'' +
                 ", price=" + price +
                 ", currency='" + currency + '\'' +
-                ", productCategory='" + productCategory + '\'' + // Added category
+                ", productCategory='" + productCategory + '\'' +
                 ", pricePerStandardUnit=" + pricePerStandardUnit +
                 ", standardUnit='" + standardUnit + '\'' +
                 ", baseUnitType=" + baseUnitType +
